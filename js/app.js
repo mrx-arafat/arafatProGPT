@@ -4,6 +4,225 @@
  */
 
 // ================================
+// 🔐 AUTHENTICATION SYSTEM
+// ================================
+const AUTH_CONFIG = {
+    username: 'arafat',
+    password: 'Arafat@123456',
+    maxAttempts: 5,
+    lockoutTime: 30000 // 30 seconds
+};
+
+let loginAttempts = 0;
+let isLockedOut = false;
+let lockoutTimer = null;
+
+// Funny error messages for wrong credentials
+const funnyErrors = [
+    "🚫 Nice try, but that's not it! Are you even trying?",
+    "🤔 Hmm... my grandma could guess better than that!",
+    "😅 Wrong! Did you try turning your brain off and on again?",
+    "🎭 Impostor detected! The real agent would know the password!",
+    "🙈 That password is so wrong, even the AI is embarrassed for you!",
+    "🔐 Access denied! The password fairy says NO!",
+    "🤖 Beep boop! Human authentication failed. Are you a robot?",
+    "🕵️ Our spy satellites confirm: you're not authorized!",
+    "💀 That password just died of embarrassment!",
+    "🎪 Welcome to the circus of wrong passwords!"
+];
+
+// Funny facts that rotate
+const funnyFacts = [
+    "💡 Fun fact: This AI once calculated pi to 1 million digits... just for fun!",
+    "🧠 Fun fact: The AI has read more books than a library full of bookworms!",
+    "🚀 Fun fact: This AI dreams in binary and speaks in emojis!",
+    "🎮 Fun fact: The AI beat every video game... in its imagination!",
+    "🍕 Fun fact: If this AI could eat, it would definitely choose pizza!",
+    "🌍 Fun fact: This AI knows 47 ways to say 'Hello' in alien languages!",
+    "🎸 Fun fact: The AI's favorite band is 'The Debugging Beatles'!",
+    "☕ Fun fact: This AI runs on coffee... wait, that's the developer!",
+    "🦄 Fun fact: The AI believes in unicorns. Don't tell it they're not real!",
+    "🎬 Fun fact: The AI's favorite movie is 'The Matrix'... for obvious reasons!"
+];
+
+function checkAuth() {
+    const isAuthenticated = sessionStorage.getItem('arafatGPT_authenticated') === 'true';
+    const loginOverlay = document.getElementById('login-overlay');
+    const appContainer = document.getElementById('app-container');
+
+    if (isAuthenticated) {
+        loginOverlay.classList.add('hidden');
+        appContainer.style.display = 'flex';
+        initializeApp();
+    } else {
+        loginOverlay.classList.remove('hidden');
+        appContainer.style.display = 'none';
+        rotateFunFact();
+    }
+}
+
+function attemptLogin(event) {
+    event.preventDefault();
+
+    if (isLockedOut) {
+        showLoginError("⏰ Whoa there, speed demon! Take a breather and try again soon!");
+        return false;
+    }
+
+    const username = document.getElementById('login-username').value.trim().toLowerCase();
+    const password = document.getElementById('login-password').value;
+    const loginBtn = document.getElementById('login-btn');
+    const btnText = loginBtn.querySelector('.btn-text');
+    const btnLoading = loginBtn.querySelector('.btn-loading');
+
+    // Show loading state
+    btnText.classList.add('hidden');
+    btnLoading.classList.remove('hidden');
+    loginBtn.disabled = true;
+
+    // Simulate verification delay for dramatic effect
+    setTimeout(() => {
+        if (username === AUTH_CONFIG.username && password === AUTH_CONFIG.password) {
+            // SUCCESS! 🎉
+            loginSuccess();
+        } else {
+            // FAIL! 😢
+            loginFailed();
+        }
+
+        btnText.classList.remove('hidden');
+        btnLoading.classList.add('hidden');
+        loginBtn.disabled = false;
+    }, 800);
+
+    return false;
+}
+
+function loginSuccess() {
+    const loginContainer = document.querySelector('.login-container');
+    const loginOverlay = document.getElementById('login-overlay');
+
+    // Store authentication
+    sessionStorage.setItem('arafatGPT_authenticated', 'true');
+
+    // Play success animation
+    loginContainer.classList.add('success');
+
+    // Show success message briefly
+    showLoginError("✅ Welcome, Agent! Initiating neural link...", true);
+
+    setTimeout(() => {
+        loginOverlay.classList.add('hidden');
+        document.getElementById('app-container').style.display = 'flex';
+        initializeApp();
+        showToast("🎉 Welcome aboard, Agent Arafat! The AI awaits your commands!", 'success');
+    }, 800);
+}
+
+function loginFailed() {
+    loginAttempts++;
+    const loginBtn = document.getElementById('login-btn');
+    const loginForm = document.querySelector('.login-container');
+
+    // Shake animation
+    loginBtn.classList.add('shake');
+    loginForm.style.animation = 'none';
+    setTimeout(() => {
+        loginForm.style.animation = '';
+        loginBtn.classList.remove('shake');
+    }, 500);
+
+    // Show random funny error
+    const randomError = funnyErrors[Math.floor(Math.random() * funnyErrors.length)];
+    showLoginError(randomError);
+
+    // Update attempts counter
+    updateAttemptsCounter();
+
+    // Check for lockout
+    if (loginAttempts >= AUTH_CONFIG.maxAttempts) {
+        inititateLockout();
+    }
+
+    // Rotate fun fact
+    rotateFunFact();
+}
+
+function showLoginError(message, isSuccess = false) {
+    const errorEl = document.getElementById('login-error');
+    errorEl.textContent = message;
+    errorEl.style.borderColor = isSuccess ? '#22c55e' : '#ef4444';
+    errorEl.style.background = isSuccess ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)';
+    errorEl.style.color = isSuccess ? '#22c55e' : '#ef4444';
+    errorEl.classList.add('visible');
+}
+
+function updateAttemptsCounter() {
+    const counter = document.getElementById('attempts-counter');
+    const remaining = AUTH_CONFIG.maxAttempts - loginAttempts;
+
+    if (remaining > 0) {
+        counter.textContent = `⚠️ ${remaining} attempt${remaining !== 1 ? 's' : ''} remaining before temporary lockout!`;
+    } else {
+        counter.textContent = "🔒 Too many attempts! Cooling down...";
+    }
+}
+
+function inititateLockout() {
+    isLockedOut = true;
+    const counter = document.getElementById('attempts-counter');
+    let timeLeft = AUTH_CONFIG.lockoutTime / 1000;
+
+    showLoginError("🔒 Slow down there, cowboy! Too many wrong guesses!");
+
+    const updateTimer = () => {
+        counter.textContent = `⏰ Try again in ${timeLeft} seconds... (Grab some coffee ☕)`;
+        timeLeft--;
+
+        if (timeLeft < 0) {
+            clearInterval(lockoutTimer);
+            isLockedOut = false;
+            loginAttempts = 0;
+            counter.textContent = "🔓 You're unlocked! Give it another shot!";
+            document.getElementById('login-error').classList.remove('visible');
+        }
+    };
+
+    updateTimer();
+    lockoutTimer = setInterval(updateTimer, 1000);
+}
+
+function rotateFunFact() {
+    const factEl = document.getElementById('fun-fact');
+    const randomFact = funnyFacts[Math.floor(Math.random() * funnyFacts.length)];
+    factEl.textContent = randomFact;
+}
+
+function togglePasswordVisibility() {
+    const passwordInput = document.getElementById('login-password');
+    const eyeIcon = document.getElementById('eye-icon');
+
+    if (passwordInput.type === 'password') {
+        passwordInput.type = 'text';
+        eyeIcon.textContent = '🙈';
+    } else {
+        passwordInput.type = 'password';
+        eyeIcon.textContent = '👁️';
+    }
+}
+
+function logout() {
+    sessionStorage.removeItem('arafatGPT_authenticated');
+    document.getElementById('login-overlay').classList.remove('hidden');
+    document.getElementById('app-container').style.display = 'none';
+    document.getElementById('login-username').value = '';
+    document.getElementById('login-password').value = '';
+    document.getElementById('login-error').classList.remove('visible');
+    loginAttempts = 0;
+    showToast("👋 See you later, Agent! The AI will miss you!", 'info');
+}
+
+// ================================
 // Configuration & State
 // ================================
 const DEFAULT_CONFIG = {
@@ -25,6 +244,11 @@ let pendingImages = [];
 // Initialization
 // ================================
 document.addEventListener('DOMContentLoaded', () => {
+    // Check authentication first
+    checkAuth();
+});
+
+function initializeApp() {
     loadConfig();
     loadConversations();
     renderConversationsList();
@@ -52,8 +276,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Update character count on input
     const messageInput = document.getElementById('message-input');
-    messageInput.addEventListener('input', updateCharCount);
-});
+    if (messageInput) {
+        messageInput.addEventListener('input', updateCharCount);
+    }
+}
 
 // ================================
 // Configuration Management
@@ -838,3 +1064,8 @@ window.handleKeyDown = handleKeyDown;
 window.autoResize = autoResize;
 window.copyCode = copyCode;
 window.toggleThinking = toggleThinking;
+
+// Authentication functions
+window.attemptLogin = attemptLogin;
+window.togglePasswordVisibility = togglePasswordVisibility;
+window.logout = logout;
