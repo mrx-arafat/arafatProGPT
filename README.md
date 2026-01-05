@@ -2,6 +2,88 @@
 
 A modern, full-featured AI chat application powered by Claude and Gemini models through Antigravity Proxy.
 
+## Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                           HOW IT WORKS                                   │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│   ┌──────────────┐     ┌───────────────────┐     ┌──────────────────┐   │
+│   │              │     │   Cloudflare      │     │                  │   │
+│   │   Browser    │────▶│   Tunnel          │────▶│  Local Backend   │   │
+│   │  (Frontend)  │     │                   │     │  (Port 8080)     │   │
+│   │              │◀────│  chat.arafatops   │◀────│                  │   │
+│   └──────────────┘     │      .com         │     └──────────────────┘   │
+│                        └───────────────────┘              │              │
+│                                                           │              │
+│                                                           ▼              │
+│                                                  ┌──────────────────┐   │
+│                                                  │  Antigravity     │   │
+│                                                  │  Claude Proxy    │   │
+│                                                  │  (AI API Calls)  │   │
+│                                                  └──────────────────┘   │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### Components
+
+| Component | Description | Location |
+|-----------|-------------|----------|
+| **Frontend** | Static HTML/CSS/JS chat interface | This repo (deployed anywhere) |
+| **Cloudflare Tunnel** | Secure tunnel exposing local server to internet | `cloudflared` on your machine |
+| **Backend API** | Antigravity Claude Proxy handling AI requests | `localhost:8080` |
+
+## Quick Start
+
+### 1. Start the Backend API
+
+Make sure your Antigravity Claude Proxy is running on port 8080:
+
+```bash
+cd antigravity-claude-proxy
+npm start
+# or
+python main.py
+```
+
+### 2. Start the Cloudflare Tunnel
+
+```bash
+./start-tunnel.sh
+```
+
+This exposes your local backend at `https://chat.arafatops.com`
+
+### 3. Open the App
+
+Open `index.html` in a browser, or visit your deployed URL.
+
+## Tunnel Configuration
+
+The Cloudflare Tunnel is configured at `~/.cloudflared/config.yml`:
+
+```yaml
+tunnel: df7eceed-e2cb-4b9c-aa02-dfcf191402f0
+credentials-file: /Users/easinarafat/.cloudflared/df7eceed-e2cb-4b9c-aa02-dfcf191402f0.json
+
+ingress:
+  - hostname: chat.arafatops.com
+    service: http://localhost:8080
+  - service: http_status:404
+```
+
+### Tunnel Commands
+
+| Command | Description |
+|---------|-------------|
+| `./start-tunnel.sh` | Start the tunnel (recommended) |
+| `cloudflared tunnel run` | Start tunnel manually |
+| `pkill cloudflared` | Stop the tunnel |
+| `tail -f /tmp/cloudflared.log` | View tunnel logs |
+| `cloudflared tunnel info` | Show tunnel status |
+
 ## Features
 
 - **Multi-Model Support**: Switch between Claude Sonnet, Claude Opus, and Gemini models
@@ -13,91 +95,46 @@ A modern, full-featured AI chat application powered by Claude and Gemini models 
 - **Conversation History**: Persistent conversation storage in localStorage
 - **Dark/Light Theme**: Toggle between themes
 - **Mobile Responsive**: Works great on all devices
-- **Offline Capable**: Static files, no server required
+- **Authentication**: Login screen with fun error messages
 
-## Deployment
+## Deployment Options
 
 ### Option 1: Vercel (Recommended)
 
-1. Push this folder to a GitHub repository
-2. Go to [vercel.com](https://vercel.com)
-3. Import your repository
-4. Deploy (no configuration needed)
-
-Or use Vercel CLI:
 ```bash
 npm i -g vercel
-cd arafatchatapp
 vercel
 ```
 
 ### Option 2: Netlify
 
-1. Go to [netlify.com](https://netlify.com)
-2. Drag and drop the `arafatchatapp` folder
-3. Done!
-
-Or use Netlify CLI:
 ```bash
 npm i -g netlify-cli
-cd arafatchatapp
 netlify deploy --prod
 ```
 
 ### Option 3: GitHub Pages
 
 1. Push to GitHub
-2. Go to repository Settings > Pages
-3. Select source branch and `/` (root)
-4. Access at `https://yourusername.github.io/repo-name`
+2. Settings > Pages > Select branch
+3. Access at `https://yourusername.github.io/repo-name`
 
-### Option 4: Cloudflare Pages
+### Option 4: Local Only
 
-1. Go to [pages.cloudflare.com](https://pages.cloudflare.com)
-2. Connect your GitHub repository
-3. Build command: (leave empty)
-4. Output directory: `/`
-5. Deploy
-
-### Option 5: Any Static Hosting
-
-Just upload the files to any web server or CDN:
-- AWS S3 + CloudFront
-- Google Cloud Storage
-- Azure Blob Storage
-- Firebase Hosting
-- Surge.sh
-
-## Usage
-
-1. **Deploy the app** using any method above
-2. **Run your Antigravity Proxy** locally:
-   ```bash
-   cd antigravity-claude-proxy
-   npm start
-   ```
-3. **Expose with ngrok**:
-   ```bash
-   ngrok http 8080
-   ```
-4. **Configure the app**:
-   - Open the deployed chat app
-   - Click Settings (gear icon)
-   - Enter your ngrok URL (e.g., `https://abc123.ngrok-free.app`)
-   - Save settings
-
-Now anyone with the deployed URL can chat using your local proxy!
+Just open `index.html` in your browser!
 
 ## File Structure
 
 ```
-arafatchatapp/
+arafatProGPT/
 ├── index.html          # Main HTML file
 ├── css/
 │   └── styles.css      # All styles (dark/light themes)
 ├── js/
 │   └── app.js          # Application logic
-├── assets/             # (Optional) Custom assets
+├── start-tunnel.sh     # Tunnel startup script
+├── vercel.json         # Vercel config
+├── netlify.toml        # Netlify config
 └── README.md           # This file
 ```
 
@@ -107,24 +144,57 @@ All settings are stored in browser localStorage:
 
 | Setting | Description | Default |
 |---------|-------------|---------|
-| API URL | Your ngrok proxy URL | (empty) |
-| Default Model | Model to use for new chats | claude-sonnet-4-5-thinking |
+| API URL | Backend proxy URL | `https://chat.arafatops.com` |
+| Default Model | Model for new chats | `claude-sonnet-4-5-thinking` |
 | Max Tokens | Maximum response length | 8192 |
 | Show Thinking | Display AI thinking blocks | true |
 | Auto Scroll | Auto-scroll to new messages | true |
 | Theme | dark or light | dark |
 
-## API Requirements
+## API Endpoints
 
-The app expects an Anthropic-compatible API at the configured URL:
+The app expects these endpoints from the backend:
 
-- `POST /v1/messages` - Chat completions (streaming)
-- `GET /health` - Health check (optional)
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/v1/messages` | POST | Chat completions (streaming) |
+| `/health` | GET | Health check (optional) |
 
-Required headers are automatically included:
+Required headers (automatically included):
 - `Content-Type: application/json`
 - `anthropic-version: 2023-06-01`
 - `ngrok-skip-browser-warning: true`
+
+## Troubleshooting
+
+### "Cloudflare Tunnel error" (Error 1033)
+
+The tunnel is not running. Fix:
+
+```bash
+./start-tunnel.sh
+```
+
+### "Connection failed" in the app
+
+1. Check if backend is running: `lsof -i :8080`
+2. Check if tunnel is running: `pgrep cloudflared`
+3. Check tunnel logs: `tail -f /tmp/cloudflared.log`
+
+### "Nothing running on port 8080"
+
+Start your backend API first:
+
+```bash
+cd antigravity-claude-proxy
+npm start
+```
+
+## Authentication
+
+Default credentials (configured in `js/app.js`):
+- Username: `arafat`
+- Password: `Arafat@123456`
 
 ## Browser Support
 
@@ -136,7 +206,3 @@ Required headers are automatically included:
 ## License
 
 MIT License - Feel free to modify and distribute.
-
-## Credits
-
-Built for use with [Antigravity Claude Proxy](https://github.com/your-repo/antigravity-claude-proxy)
