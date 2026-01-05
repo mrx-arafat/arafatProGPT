@@ -192,7 +192,7 @@ npm start
 
 ## Authentication
 
-Default credentials (configured in `js/app.js`):
+My Test credentials (configured in `js/app.js`): 😘
 - Username: `arafat`
 - Password: `Arafat@123456`
 
