@@ -256,6 +256,7 @@ function initializeApp() {
     renderConversationsList();
     checkConnection();
     initializeMascot();
+    initializeImageHandlers();  // Initialize paste and drag-drop for images
 
     // Load last conversation or show welcome
     const lastConvId = localStorage.getItem('lastConversationId');
@@ -508,49 +509,292 @@ function closeSidebar() {
 // ================================
 // Image Handling
 // ================================
-function handleImageUpload(event) {
-    const files = Array.from(event.target.files);
+const IMAGE_CONFIG = {
+    maxSize: 20 * 1024 * 1024,  // 20MB original limit
+    maxCompressedSize: 4 * 1024 * 1024,  // 4MB compressed target
+    maxDimension: 2048,  // Max width/height for compression
+    compressionQuality: 0.85,  // JPEG quality
+    supportedTypes: ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
+};
 
-    files.forEach(file => {
-        if (!file.type.startsWith('image/')) {
-            showToast('Please select an image file', 'error');
-            return;
-        }
+let isProcessingImages = false;
 
-        if (file.size > 20 * 1024 * 1024) {
-            showToast('Image must be less than 20MB', 'error');
-            return;
-        }
+// Compress image using canvas
+async function compressImage(file) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
 
+        img.onload = () => {
+            let { width, height } = img;
+
+            // Scale down if larger than max dimension
+            if (width > IMAGE_CONFIG.maxDimension || height > IMAGE_CONFIG.maxDimension) {
+                const ratio = Math.min(
+                    IMAGE_CONFIG.maxDimension / width,
+                    IMAGE_CONFIG.maxDimension / height
+                );
+                width = Math.round(width * ratio);
+                height = Math.round(height * ratio);
+            }
+
+            canvas.width = width;
+            canvas.height = height;
+            ctx.drawImage(img, 0, 0, width, height);
+
+            // Convert to JPEG for better compression (except for PNGs with transparency)
+            const outputType = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
+            const base64 = canvas.toDataURL(outputType, IMAGE_CONFIG.compressionQuality);
+
+            resolve({
+                type: 'base64',
+                media_type: outputType,
+                data: base64.split(',')[1],
+                originalName: file.name,
+                originalSize: file.size,
+                compressedSize: Math.round((base64.length * 3) / 4)  // Approximate base64 decoded size
+            });
+        };
+
+        img.onerror = () => reject(new Error('Failed to load image'));
+
+        const reader = new FileReader();
+        reader.onload = (e) => { img.src = e.target.result; };
+        reader.onerror = () => reject(new Error('Failed to read file'));
+        reader.readAsDataURL(file);
+    });
+}
+
+// Process a single image file
+async function processImageFile(file) {
+    if (!file.type.startsWith('image/')) {
+        throw new Error('Not an image file');
+    }
+
+    if (!IMAGE_CONFIG.supportedTypes.includes(file.type)) {
+        throw new Error(`Unsupported image type: ${file.type}`);
+    }
+
+    if (file.size > IMAGE_CONFIG.maxSize) {
+        throw new Error('Image must be less than 20MB');
+    }
+
+    // Compress if larger than 1MB, otherwise use as-is
+    if (file.size > 1024 * 1024) {
+        return await compressImage(file);
+    }
+
+    // Small image - just convert to base64
+    return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = (e) => {
             const base64 = e.target.result;
-            pendingImages.push({
+            resolve({
                 type: 'base64',
                 media_type: file.type,
-                data: base64.split(',')[1]
+                data: base64.split(',')[1],
+                originalName: file.name,
+                originalSize: file.size,
+                compressedSize: file.size
             });
-            renderImagePreviews();
         };
+        reader.onerror = () => reject(new Error('Failed to read file'));
         reader.readAsDataURL(file);
     });
+}
 
+// Process multiple image files
+async function processImageFiles(files) {
+    if (isProcessingImages) return;
+
+    const fileArray = Array.from(files).filter(f => f.type.startsWith('image/'));
+    if (fileArray.length === 0) return;
+
+    isProcessingImages = true;
+    showImageProcessingIndicator(true);
+
+    let successCount = 0;
+    let errorCount = 0;
+
+    for (const file of fileArray) {
+        try {
+            const processedImage = await processImageFile(file);
+            pendingImages.push(processedImage);
+            successCount++;
+            renderImagePreviews();
+        } catch (error) {
+            errorCount++;
+            console.error('Image processing error:', error);
+            showToast(`Failed to process ${file.name}: ${error.message}`, 'error');
+        }
+    }
+
+    isProcessingImages = false;
+    showImageProcessingIndicator(false);
+
+    if (successCount > 0) {
+        const sizeInfo = pendingImages.length > 0
+            ? ` (${pendingImages.length} image${pendingImages.length > 1 ? 's' : ''} ready)`
+            : '';
+        showToast(`${successCount} image${successCount > 1 ? 's' : ''} added${sizeInfo}`, 'success');
+    }
+}
+
+function showImageProcessingIndicator(show) {
+    let indicator = document.getElementById('image-processing-indicator');
+
+    if (show) {
+        if (!indicator) {
+            indicator = document.createElement('div');
+            indicator.id = 'image-processing-indicator';
+            indicator.className = 'image-processing-indicator';
+            indicator.innerHTML = `
+                <div class="processing-spinner"></div>
+                <span>Processing images...</span>
+            `;
+            const previewContainer = document.getElementById('image-preview-container');
+            previewContainer.parentNode.insertBefore(indicator, previewContainer);
+        }
+        indicator.classList.add('visible');
+    } else if (indicator) {
+        indicator.classList.remove('visible');
+    }
+}
+
+// File input handler
+function handleImageUpload(event) {
+    processImageFiles(event.target.files);
     event.target.value = '';
+}
+
+// Clipboard paste handler
+function handlePaste(event) {
+    const items = event.clipboardData?.items;
+    if (!items) return;
+
+    const imageFiles = [];
+    for (const item of items) {
+        if (item.type.startsWith('image/')) {
+            const file = item.getAsFile();
+            if (file) imageFiles.push(file);
+        }
+    }
+
+    if (imageFiles.length > 0) {
+        event.preventDefault();
+        processImageFiles(imageFiles);
+    }
+}
+
+// Drag and drop handlers
+function handleDragOver(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    const inputArea = document.querySelector('.input-floater');
+    if (inputArea) inputArea.classList.add('drag-over');
+}
+
+function handleDragLeave(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    const inputArea = document.querySelector('.input-floater');
+    if (inputArea) inputArea.classList.remove('drag-over');
+}
+
+function handleDrop(event) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const inputArea = document.querySelector('.input-floater');
+    if (inputArea) inputArea.classList.remove('drag-over');
+
+    const files = event.dataTransfer?.files;
+    if (files && files.length > 0) {
+        processImageFiles(files);
+    }
+}
+
+// Initialize image handling event listeners
+function initializeImageHandlers() {
+    const messageInput = document.getElementById('message-input');
+    const inputFloater = document.querySelector('.input-floater');
+    const chatContainer = document.getElementById('chat-container');
+
+    // Paste handler on the textarea
+    if (messageInput) {
+        messageInput.addEventListener('paste', handlePaste);
+    }
+
+    // Also listen for paste on the whole document when input is focused
+    document.addEventListener('paste', (event) => {
+        const activeElement = document.activeElement;
+        if (activeElement === messageInput ||
+            activeElement?.closest('.input-floater') ||
+            activeElement?.closest('.main-stage')) {
+            handlePaste(event);
+        }
+    });
+
+    // Drag and drop on input area
+    if (inputFloater) {
+        inputFloater.addEventListener('dragover', handleDragOver);
+        inputFloater.addEventListener('dragleave', handleDragLeave);
+        inputFloater.addEventListener('drop', handleDrop);
+    }
+
+    // Also allow drop on the main chat area
+    if (chatContainer) {
+        chatContainer.addEventListener('dragover', handleDragOver);
+        chatContainer.addEventListener('dragleave', handleDragLeave);
+        chatContainer.addEventListener('drop', handleDrop);
+    }
 }
 
 function renderImagePreviews() {
     const container = document.getElementById('image-preview-container');
-    container.innerHTML = pendingImages.map((img, index) => `
-        <div class="image-preview">
-            <img src="data:${img.media_type};base64,${img.data}" alt="Preview">
-            <button class="remove-image" onclick="removeImage(${index})">×</button>
-        </div>
-    `).join('');
+    if (pendingImages.length === 0) {
+        container.innerHTML = '';
+        container.classList.remove('has-images');
+        return;
+    }
+
+    container.classList.add('has-images');
+    container.innerHTML = pendingImages.map((img, index) => {
+        const sizeKB = Math.round(img.compressedSize / 1024);
+        const sizeLabel = sizeKB > 1024
+            ? `${(sizeKB / 1024).toFixed(1)}MB`
+            : `${sizeKB}KB`;
+
+        return `
+            <div class="image-preview" data-index="${index}">
+                <img src="data:${img.media_type};base64,${img.data}" alt="Preview ${index + 1}">
+                <div class="image-preview-info">
+                    <span class="image-size">${sizeLabel}</span>
+                </div>
+                <button class="remove-image" onclick="removeImage(${index})" title="Remove image">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+        `;
+    }).join('');
 }
 
 function removeImage(index) {
     pendingImages.splice(index, 1);
     renderImagePreviews();
+    if (pendingImages.length === 0) {
+        showToast('All images removed', 'info');
+    }
+}
+
+function clearAllImages() {
+    pendingImages = [];
+    renderImagePreviews();
+    showToast('All images cleared', 'info');
 }
 
 // ================================
@@ -1136,6 +1380,7 @@ window.saveSettings = saveSettings;
 window.clearAllData = clearAllData;
 window.handleImageUpload = handleImageUpload;
 window.removeImage = removeImage;
+window.clearAllImages = clearAllImages;
 window.sendMessage = sendMessage;
 window.stopGeneration = stopGeneration;
 window.setPrompt = setPrompt;
