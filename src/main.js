@@ -3,12 +3,14 @@
  * A full-featured chat interface for Antigravity Claude Proxy
  */
 
+import './styles.css';
+
 // ================================
 // 🔐 AUTHENTICATION SYSTEM
 // ================================
 const AUTH_CONFIG = {
-    username: 'arafat',
-    password: 'Arafat@123456',
+    username: import.meta.env.VITE_APP_USERNAME || 'admin',
+    password: import.meta.env.VITE_APP_PASSWORD || 'password',
     maxAttempts: 5,
     lockoutTime: 30000 // 30 seconds
 };
@@ -227,8 +229,8 @@ function logout() {
 // ================================
 const DEFAULT_CONFIG = {
     apiUrl: 'https://chat.arafatops.com',
-    defaultModel: 'claude-sonnet-4-5-thinking',
-    maxTokens: 8192,
+    defaultModel: 'claude-sonnet-4-5',
+    maxTokens: 16384,
     showThinking: true,
     autoScroll: true
 };
@@ -253,6 +255,7 @@ function initializeApp() {
     loadConversations();
     renderConversationsList();
     checkConnection();
+    initializeMascot();
 
     // Load last conversation or show welcome
     const lastConvId = localStorage.getItem('lastConversationId');
@@ -262,11 +265,11 @@ function initializeApp() {
 
     // Setup marked for markdown
     marked.setOptions({
-        highlight: function(code, lang) {
+        highlight: function (code, lang) {
             if (lang && hljs.getLanguage(lang)) {
                 try {
                     return hljs.highlight(code, { language: lang }).value;
-                } catch (e) {}
+                } catch (e) { }
             }
             return hljs.highlightAuto(code).value;
         },
@@ -278,6 +281,20 @@ function initializeApp() {
     const messageInput = document.getElementById('message-input');
     if (messageInput) {
         messageInput.addEventListener('input', updateCharCount);
+    }
+}
+
+function initializeMascot() {
+    const sidebar = document.getElementById('right-sidebar');
+    const mascot = document.getElementById('robot-mascot');
+
+    if (sidebar && mascot) {
+        // Mascot shows when sidebar is OPEN, hides when sidebar is CLOSED
+        if (sidebar.classList.contains('closed')) {
+            mascot.classList.add('hidden-by-sidebar');
+        } else {
+            mascot.classList.remove('hidden-by-sidebar');
+        }
     }
 }
 
@@ -339,9 +356,12 @@ function toggleTheme() {
 }
 
 function updateTheme() {
-    const theme = localStorage.getItem('theme') || 'dark';
+    const theme = localStorage.getItem('theme') || 'light';
     document.documentElement.setAttribute('data-theme', theme);
-    document.getElementById('theme-text').textContent = theme === 'dark' ? 'Light Mode' : 'Dark Mode';
+    const themeTextEl = document.getElementById('theme-text');
+    if (themeTextEl) {
+        themeTextEl.textContent = theme === 'dark' ? 'Light Mode' : 'Dark Mode';
+    }
 }
 
 // ================================
@@ -479,7 +499,10 @@ function toggleSidebar() {
 }
 
 function closeSidebar() {
-    document.getElementById('sidebar').classList.remove('open');
+    const sidebar = document.getElementById('right-sidebar');
+    if (sidebar) {
+        sidebar.classList.remove('mobile-visible');
+    }
 }
 
 // ================================
@@ -761,21 +784,8 @@ function stopGeneration() {
 }
 
 // ================================
-// Message Rendering
+// Message Rendering Functions Helper
 // ================================
-function createMessageElement(role) {
-    const div = document.createElement('div');
-    div.className = `message ${role}`;
-    div.innerHTML = `
-        <div class="message-header">
-            <div class="message-avatar">${role === 'user' ? '👤' : '🤖'}</div>
-            <span class="message-role">${role === 'user' ? 'You' : 'Assistant'}</span>
-        </div>
-        <div class="message-content"></div>
-    `;
-    return div;
-}
-
 function createThinkingBlock() {
     const div = document.createElement('div');
     div.className = 'thinking-block';
@@ -927,7 +937,9 @@ function autoResize(textarea) {
 function updateCharCount() {
     const input = document.getElementById('message-input');
     const count = document.getElementById('char-count');
-    count.textContent = `${input.value.length} characters`;
+    if (count && input) {
+        count.textContent = `${input.value.length} characters`;
+    }
 }
 
 function handleKeyDown(event) {
@@ -943,6 +955,18 @@ function setPrompt(text) {
     input.focus();
     autoResize(input);
     updateCharCount();
+}
+
+function focusChatInput() {
+    const input = document.getElementById('message-input');
+    if (input) {
+        input.focus();
+        // Add a little visual feedback
+        input.style.boxShadow = '0 0 0 3px rgba(99, 102, 241, 0.3)';
+        setTimeout(() => {
+            input.style.boxShadow = '';
+        }, 500);
+    }
 }
 
 function getWelcomeScreenHTML() {
@@ -978,15 +1002,20 @@ function getWelcomeScreenHTML() {
 // ================================
 async function checkConnection() {
     const statusEl = document.getElementById('connection-status');
+    if (!statusEl) return;
+
     const statusText = statusEl.querySelector('.status-text');
+    if (!statusText) return;
 
     if (!config.apiUrl) {
-        statusEl.className = 'connection-status';
+        statusEl.className = 'connection-pill';
+        statusEl.classList.remove('hidden');
         statusText.textContent = 'API URL not configured';
         return;
     }
 
-    statusEl.className = 'connection-status connecting';
+    statusEl.className = 'connection-pill connecting';
+    statusEl.classList.remove('hidden');
     statusText.textContent = 'Connecting...';
 
     try {
@@ -996,13 +1025,13 @@ async function checkConnection() {
 
         if (response.ok) {
             const data = await response.json();
-            statusEl.className = 'connection-status connected';
+            statusEl.className = 'connection-pill connected';
             statusText.textContent = `Connected • ${data.accounts || 'Proxy ready'}`;
         } else {
             throw new Error('Bad response');
         }
     } catch (e) {
-        statusEl.className = 'connection-status error';
+        statusEl.className = 'connection-pill error';
         statusText.textContent = 'Connection failed - check Settings';
     }
 }
@@ -1045,11 +1074,61 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
+function exportData() {
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(conversations, null, 2));
+    const downloadAnchorNode = document.createElement('a');
+    downloadAnchorNode.setAttribute("href", dataStr);
+    downloadAnchorNode.setAttribute("download", "arafat_gpt_history_" + new Date().toISOString() + ".json");
+    document.body.appendChild(downloadAnchorNode); // required for firefox
+    downloadAnchorNode.click();
+    downloadAnchorNode.remove();
+    showToast('Chat history exported successfully', 'success');
+}
+
 // Expose functions to global scope for onclick handlers
+// ================================
+// Sidebar & UI Logic
+// ================================
+function toggleRightSidebar() {
+    const sidebar = document.getElementById('right-sidebar');
+    const mascot = document.getElementById('robot-mascot');
+
+    if (sidebar) {
+        sidebar.classList.toggle('closed');
+        sidebar.classList.toggle('mobile-visible');
+
+        // Toggle mascot visibility based on sidebar state
+        // Mascot shows when sidebar is OPEN, hides when sidebar is CLOSED
+        if (mascot) {
+            if (sidebar.classList.contains('closed')) {
+                mascot.classList.add('hidden-by-sidebar');
+            } else {
+                mascot.classList.remove('hidden-by-sidebar');
+            }
+        }
+    }
+}
+
+// ================================
+// Message Rendering (Updated for new DOM)
+// ================================
+function createMessageElement(role) {
+    const div = document.createElement('div');
+    div.className = `message ${role}`;
+    const avatarIcon = role === 'user' ? '👤' : '✨';
+    div.innerHTML = `
+        <div class="message-avatar">${avatarIcon}</div>
+        <div class="message-content"></div>
+    `;
+    return div;
+}
+
+// Expose functions to global scope for onclick handlers
+window.toggleRightSidebar = toggleRightSidebar;
+window.exportData = exportData;
 window.newChat = newChat;
 window.loadConversation = loadConversation;
 window.deleteConversation = deleteConversation;
-window.toggleSidebar = toggleSidebar;
 window.toggleTheme = toggleTheme;
 window.openSettings = openSettings;
 window.closeSettings = closeSettings;
@@ -1060,6 +1139,7 @@ window.removeImage = removeImage;
 window.sendMessage = sendMessage;
 window.stopGeneration = stopGeneration;
 window.setPrompt = setPrompt;
+window.focusChatInput = focusChatInput;
 window.handleKeyDown = handleKeyDown;
 window.autoResize = autoResize;
 window.copyCode = copyCode;
@@ -1069,3 +1149,4 @@ window.toggleThinking = toggleThinking;
 window.attemptLogin = attemptLogin;
 window.togglePasswordVisibility = togglePasswordVisibility;
 window.logout = logout;
+window.checkAuth = checkAuth;

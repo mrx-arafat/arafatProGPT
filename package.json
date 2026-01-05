@@ -1,0 +1,26 @@
+{
+  "name": "arafatprogpt",
+  "version": "1.0.0",
+  "description": "A modern, full-featured AI chat application powered by Claude and Gemini models through Antigravity Proxy.",
+  "main": "index.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mrx-arafat/arafatProGPT.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/mrx-arafat/arafatProGPT/issues"
+  },
+  "homepage": "https://github.com/mrx-arafat/arafatProGPT#readme",
+  "devDependencies": {
+    "vite": "^7.3.0"
+  }
+}
