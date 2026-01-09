@@ -1,7 +1,7 @@
 {
   "name": "arafatprogpt",
   "version": "1.0.0",
-  "description": "A modern, full-featured AI chat application powered by Claude and Gemini models through Antigravity Proxy.",
+  "description": "A modern, full-featured AI chat application powered by Claude and Gemini models.",
   "main": "index.js",
   "scripts": {
     "dev": "vite",

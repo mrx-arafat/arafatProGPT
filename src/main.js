@@ -1,6 +1,6 @@
 /**
  * Arafat Chat - AI Chat Application
- * A full-featured chat interface for Antigravity Claude Proxy
+ * A full-featured chat interface for Claude and Gemini AI models
  */
 
 import './styles.css';
@@ -1296,7 +1296,7 @@ function getWelcomeScreenHTML() {
         <div class="welcome-screen" id="welcome-screen">
             <div class="welcome-logo">🚀</div>
             <h1>Welcome to Arafat Chat</h1>
-            <p>Powered by Claude & Gemini AI models through Antigravity Proxy</p>
+            <p>Powered by Claude & Gemini AI models</p>
             <div class="quick-actions">
                 <button class="quick-action" onclick="setPrompt('Explain quantum computing in simple terms')">
                     <span class="quick-icon">💡</span>
