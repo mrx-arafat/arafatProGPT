@@ -240,15 +240,22 @@ body {
 }
 
 .message.user .message-avatar {
-    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    background: linear-gradient(135deg, #1e293b, #334155);
     color: white;
-    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+    box-shadow: 0 2px 8px rgba(30, 41, 59, 0.3);
 }
 
 .message.assistant .message-avatar {
     background: linear-gradient(135deg, #10b981, #059669);
     color: white;
     box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+}
+
+.message-avatar svg {
+    width: 16px;
+    height: 16px;
+    stroke: currentColor;
+    stroke-width: 2;
 }
 
 .message-content {
@@ -1283,11 +1290,15 @@ body {
         border-radius: 0;
         border: none;
         height: calc(100vh - 56px);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
     }
 
     .chat-header {
         height: 50px;
         padding: 0 1rem;
+        flex-shrink: 0;
     }
 
     .chat-header h2 {
@@ -1299,29 +1310,48 @@ body {
     }
 
     .chat-viewport {
+        flex: 1;
         padding: 1rem;
-        padding-bottom: 160px;
+        padding-bottom: 140px;
+        overflow-y: auto;
+        min-height: 0;
     }
 
     .input-floater-container {
-        width: calc(100% - 1rem);
-        bottom: 8px;
-        left: 50%;
-        transform: translateX(-50%);
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        width: 100%;
+        padding: 10px 12px;
+        padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+        background: rgba(255, 255, 255, 0.98);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        z-index: 100;
+        transform: none;
+        box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.1);
+        border-top: 1px solid rgba(0, 0, 0, 0.05);
     }
 
     .input-floater {
-        padding: 0.4rem 0.5rem 0.4rem 0.75rem;
-        border-radius: 20px;
+        padding: 0.5rem 0.6rem 0.5rem 0.85rem;
+        border-radius: 24px;
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
     }
 
     #message-input {
-        font-size: 0.9rem;
-        padding: 8px 0;
+        font-size: 16px; /* Prevents iOS zoom on focus */
+        padding: 10px 0;
+        min-height: 24px;
     }
 
     .send-btn-modern,
-    .stop-btn-modern,
+    .stop-btn-modern {
+        width: 38px;
+        height: 38px;
+    }
+
     .attach-btn-modern {
         width: 36px;
         height: 36px;
@@ -1329,6 +1359,7 @@ body {
 
     .model-selector-pill {
         margin-top: 0.5rem;
+        padding-bottom: 0;
     }
 
     .model-select-transparent {
@@ -2098,4 +2129,555 @@ pre code {
     display: flex;
     align-items: center;
     gap: 0.5rem;
+}
+
+/* ================================
+   🔗 ACCOUNT LIMITS MODAL
+================================ */
+.account-limits-modal {
+    max-width: 750px;
+    width: 100%;
+    max-height: 85vh;
+}
+
+.account-limits-modal .modal-body {
+    max-height: calc(85vh - 80px);
+    overflow-y: auto;
+}
+
+.account-limits-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 3rem;
+    gap: 1rem;
+}
+
+.account-limits-loading .spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid rgba(99, 102, 241, 0.2);
+    border-top-color: var(--accent-secondary);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+.account-limits-loading span {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.account-limits-error {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    gap: 1rem;
+    text-align: center;
+}
+
+.account-limits-error .error-icon {
+    font-size: 2.5rem;
+}
+
+.account-limits-error .error-text {
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+}
+
+/* Summary Cards */
+.account-summary-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.summary-card {
+    background: linear-gradient(135deg, #f8fafc, #f1f5f9);
+    border-radius: 16px;
+    padding: 1.25rem;
+    text-align: center;
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    transition: var(--transition);
+}
+
+.summary-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+}
+
+.summary-card.connected {
+    background: linear-gradient(135deg, #ecfdf5, #d1fae5);
+    border-color: rgba(16, 185, 129, 0.2);
+}
+
+.summary-card.rate-limited {
+    background: linear-gradient(135deg, #fef3c7, #fde68a);
+    border-color: rgba(245, 158, 11, 0.2);
+}
+
+.summary-card.invalid {
+    background: linear-gradient(135deg, #fef2f2, #fee2e2);
+    border-color: rgba(239, 68, 68, 0.2);
+}
+
+.summary-card .card-value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1;
+    margin-bottom: 0.5rem;
+}
+
+.summary-card.connected .card-value {
+    color: #059669;
+}
+
+.summary-card.rate-limited .card-value {
+    color: #d97706;
+}
+
+.summary-card.invalid .card-value {
+    color: #dc2626;
+}
+
+.summary-card .card-label {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Account Details Section */
+.account-details-section,
+.model-quotas-section {
+    margin-bottom: 1.5rem;
+}
+
+.account-details-section h3,
+.model-quotas-section h3 {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.account-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.account-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.25rem;
+    background: #f8fafc;
+    border-radius: 12px;
+    border: 1px solid transparent;
+    transition: var(--transition);
+}
+
+.account-card:hover {
+    background: white;
+    border-color: #e2e8f0;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.account-card .account-info {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.account-card .account-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.account-card .account-name {
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.account-card .account-status {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.account-card .status-badge {
+    padding: 0.25rem 0.75rem;
+    border-radius: 99px;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.account-card .status-badge.ok {
+    background: rgba(16, 185, 129, 0.1);
+    color: #059669;
+}
+
+.account-card .status-badge.rate-limited {
+    background: rgba(245, 158, 11, 0.1);
+    color: #d97706;
+}
+
+.account-card .status-badge.invalid {
+    background: rgba(239, 68, 68, 0.1);
+    color: #dc2626;
+}
+
+.account-card .quota-reset {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+/* Model Quotas Grid */
+.model-quotas-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 0.75rem;
+}
+
+.model-quota-card {
+    background: #f8fafc;
+    border-radius: 12px;
+    padding: 1rem;
+    border: 1px solid transparent;
+    transition: var(--transition);
+}
+
+.model-quota-card:hover {
+    background: white;
+    border-color: #e2e8f0;
+}
+
+.model-quota-card .model-name {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 0.75rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.model-quota-card .quota-bars {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.quota-bar-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.quota-bar-item .bar-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+}
+
+.quota-bar-item .bar-track {
+    height: 6px;
+    background: #e2e8f0;
+    border-radius: 99px;
+    overflow: hidden;
+}
+
+.quota-bar-item .bar-fill {
+    height: 100%;
+    border-radius: 99px;
+    transition: width 0.5s ease;
+}
+
+.quota-bar-item .bar-fill.high {
+    background: linear-gradient(90deg, #22c55e, #16a34a);
+}
+
+.quota-bar-item .bar-fill.medium {
+    background: linear-gradient(90deg, #f59e0b, #d97706);
+}
+
+.quota-bar-item .bar-fill.low {
+    background: linear-gradient(90deg, #ef4444, #dc2626);
+}
+
+/* Connection pill hover state */
+.connection-pill {
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.connection-pill:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+}
+
+/* Account Limits Modal Mobile */
+@media (max-width: 768px) {
+    .account-limits-modal {
+        max-width: calc(100% - 1rem);
+        margin: 0.5rem;
+        max-height: 90vh;
+    }
+
+    .account-summary-cards {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.75rem;
+    }
+
+    .summary-card {
+        padding: 1rem;
+    }
+
+    .summary-card .card-value {
+        font-size: 1.5rem;
+    }
+
+    .account-card {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.75rem;
+        padding: 0.875rem;
+    }
+
+    .account-card .account-status {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.25rem;
+    }
+
+    .model-quotas-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .model-quota-card {
+        padding: 0.875rem;
+    }
+
+    .quota-table {
+        font-size: 0.7rem;
+    }
+
+    .quota-model-col {
+        min-width: 80px;
+        max-width: 100px;
+    }
+
+    .quota-account-col,
+    .quota-cell {
+        min-width: 50px;
+    }
+
+    .quota-percentage {
+        font-size: 0.65rem;
+    }
+}
+
+/* ================================
+   📊 QUOTA TABLE STYLES
+================================ */
+.quota-table {
+    width: 100%;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid #e2e8f0;
+    background: white;
+}
+
+.quota-table-header {
+    display: flex;
+    background: linear-gradient(135deg, #1e293b, #334155);
+    color: white;
+    font-weight: 600;
+    font-size: 0.75rem;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+.quota-table-header .quota-model-col,
+.quota-table-header .quota-account-col {
+    padding: 0.75rem 0.5rem;
+}
+
+.quota-table-row {
+    display: flex;
+    border-bottom: 1px solid #f1f5f9;
+    transition: var(--transition);
+}
+
+.quota-table-row:last-child {
+    border-bottom: none;
+}
+
+.quota-table-row:hover {
+    background: #f8fafc;
+}
+
+.quota-model-col {
+    flex: 0 0 auto;
+    min-width: 120px;
+    max-width: 150px;
+    padding: 0.6rem 0.75rem;
+    font-weight: 500;
+    font-size: 0.8rem;
+    color: var(--text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    border-right: 1px solid #f1f5f9;
+    background: #fafbfc;
+}
+
+.quota-account-col {
+    flex: 1;
+    min-width: 80px;
+    padding: 0.6rem 0.5rem;
+    text-align: center;
+    font-size: 0.75rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.quota-cell {
+    flex: 1;
+    min-width: 80px;
+    padding: 0.5rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+}
+
+.quota-bar-mini {
+    width: 100%;
+    height: 6px;
+    background: #e2e8f0;
+    border-radius: 99px;
+    overflow: hidden;
+}
+
+.quota-bar-fill {
+    height: 100%;
+    border-radius: 99px;
+    transition: width 0.5s ease;
+}
+
+.quota-bar-fill.high {
+    background: linear-gradient(90deg, #22c55e, #16a34a);
+}
+
+.quota-bar-fill.medium {
+    background: linear-gradient(90deg, #f59e0b, #d97706);
+}
+
+.quota-bar-fill.low {
+    background: linear-gradient(90deg, #ef4444, #dc2626);
+}
+
+.quota-percentage {
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.quota-percentage.high {
+    color: #059669;
+}
+
+.quota-percentage.medium {
+    color: #d97706;
+}
+
+.quota-percentage.low {
+    color: #dc2626;
+}
+
+.quota-na {
+    color: var(--text-muted);
+    font-size: 0.7rem;
+}
+
+/* Account details text styling */
+.account-details-text {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+}
+
+.account-reset-time {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+}
+
+/* Model quotas section scrollable */
+.model-quotas-section {
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    min-height: 200px;
+}
+
+.model-quotas-section h3 {
+    flex-shrink: 0;
+}
+
+.model-quotas-grid {
+    overflow-y: auto;
+    overflow-x: auto;
+    flex: 1;
+    max-height: 350px;
+    border-radius: 12px;
+}
+
+/* Scrollbar styling for the quota table */
+.model-quotas-grid::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+.model-quotas-grid::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 3px;
+}
+
+.model-quotas-grid::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 3px;
+}
+
+.model-quotas-grid::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+/* Handle many accounts - horizontal scroll */
+@media (min-width: 769px) {
+    .quota-table {
+        min-width: max-content;
+    }
 }

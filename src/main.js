@@ -1329,6 +1329,10 @@ async function checkConnection() {
     const statusText = statusEl.querySelector('.status-text');
     if (!statusText) return;
 
+    // Make the pill clickable to open Account Limits
+    statusEl.style.cursor = 'pointer';
+    statusEl.onclick = openAccountLimits;
+
     if (!config.apiUrl) {
         statusEl.className = 'connection-pill';
         statusEl.classList.remove('hidden');
@@ -1348,10 +1352,14 @@ async function checkConnection() {
         if (response.ok) {
             const data = await response.json();
             statusEl.className = 'connection-pill connected';
-            // Use summary field or count available accounts
-            const accountInfo = data.summary ||
-                (data.counts ? `${data.counts.available}/${data.counts.total} accounts` : 'Proxy ready');
-            statusText.textContent = `Connected • ${accountInfo}`;
+            // Simplified status: "Connected • X accounts"
+            const available = data.counts?.available || 0;
+            const rateLimited = data.counts?.rateLimited || 0;
+            let statusInfo = `${available} available`;
+            if (rateLimited > 0) {
+                statusInfo += `, ${rateLimited} limited`;
+            }
+            statusText.textContent = `Connected • ${statusInfo}`;
         } else {
             throw new Error('Bad response');
         }
@@ -1435,12 +1443,222 @@ function toggleRightSidebar() {
 }
 
 // ================================
+// Account Limits Modal
+// ================================
+let accountLimitsData = null;
+
+function openAccountLimits() {
+    const modal = document.getElementById('account-limits-modal');
+    modal.classList.add('active');
+    fetchAccountLimits();
+}
+
+function closeAccountLimits() {
+    const modal = document.getElementById('account-limits-modal');
+    modal.classList.remove('active');
+}
+
+async function fetchAccountLimits() {
+    const loadingEl = document.getElementById('account-limits-loading');
+    const contentEl = document.getElementById('account-limits-content');
+    const errorEl = document.getElementById('account-limits-error');
+
+    // Show loading
+    loadingEl.style.display = 'flex';
+    contentEl.style.display = 'none';
+    errorEl.style.display = 'none';
+
+    if (!config.apiUrl) {
+        loadingEl.style.display = 'none';
+        errorEl.style.display = 'flex';
+        errorEl.querySelector('.error-text').textContent = 'API URL not configured. Please set it in Settings.';
+        return;
+    }
+
+    try {
+        const response = await fetch(`${config.apiUrl}/account-limits`, {
+            headers: { 'ngrok-skip-browser-warning': 'true' }
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+        accountLimitsData = data;
+        renderAccountLimits(data);
+
+        loadingEl.style.display = 'none';
+        contentEl.style.display = 'block';
+    } catch (e) {
+        console.error('Failed to fetch account limits:', e);
+        loadingEl.style.display = 'none';
+        errorEl.style.display = 'flex';
+        errorEl.querySelector('.error-text').textContent = `Failed to load: ${e.message}`;
+    }
+}
+
+function renderAccountLimits(data) {
+    // Parse the actual API response format
+    const accounts = data.accounts || [];
+    const models = data.models || [];
+    const totalAccounts = data.totalAccounts || accounts.length;
+
+    // Calculate counts
+    const availableCount = accounts.filter(a => a.status === 'ok').length;
+    const rateLimitedCount = accounts.filter(a => a.status === 'rate_limited').length;
+    const invalidCount = accounts.filter(a => a.status !== 'ok' && a.status !== 'rate_limited').length;
+
+    // Render Summary Cards
+    const summaryEl = document.getElementById('account-summary-cards');
+    summaryEl.innerHTML = `
+        <div class="summary-card connected">
+            <div class="card-value">${availableCount}</div>
+            <div class="card-label">Available</div>
+        </div>
+        <div class="summary-card rate-limited">
+            <div class="card-value">${rateLimitedCount}</div>
+            <div class="card-label">Rate Limited</div>
+        </div>
+        <div class="summary-card invalid">
+            <div class="card-value">${invalidCount}</div>
+            <div class="card-label">Invalid</div>
+        </div>
+        <div class="summary-card">
+            <div class="card-value">${totalAccounts}</div>
+            <div class="card-label">Total</div>
+        </div>
+    `;
+
+    // Render Account Cards with their model limits
+    const accountCardsEl = document.getElementById('account-cards');
+
+    if (accounts.length === 0) {
+        accountCardsEl.innerHTML = '<p style="color: var(--text-muted); text-align: center; padding: 1rem;">No accounts found</p>';
+    } else {
+        accountCardsEl.innerHTML = accounts.map(account => {
+            const statusClass = account.status === 'ok' ? 'ok' :
+                account.status === 'rate_limited' ? 'rate-limited' : 'invalid';
+            const statusLabel = account.status === 'ok' ? 'Active' :
+                account.status === 'rate_limited' ? 'Rate Limited' : 'Invalid';
+            const initial = (account.email || 'A').charAt(0).toUpperCase();
+
+            // Get the earliest reset time from all models
+            let earliestReset = null;
+            if (account.limits) {
+                Object.values(account.limits).forEach(limit => {
+                    if (limit.resetTime) {
+                        const resetDate = new Date(limit.resetTime);
+                        if (!earliestReset || resetDate < earliestReset) {
+                            earliestReset = resetDate;
+                        }
+                    }
+                });
+            }
+            const resetTime = earliestReset ? earliestReset.toLocaleString() : 'N/A';
+
+            return `
+                <div class="account-card">
+                    <div class="account-info">
+                        <div class="account-avatar">${initial}</div>
+                        <div class="account-details-text">
+                            <div class="account-name">${escapeHtml(account.email || 'Unknown')}</div>
+                            <div class="account-reset-time">Next reset: ${resetTime}</div>
+                        </div>
+                    </div>
+                    <div class="account-status">
+                        <span class="status-badge ${statusClass}">${statusLabel}</span>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    // Render Model Quotas as a comprehensive table
+    const modelQuotasEl = document.getElementById('model-quotas-grid');
+
+    if (models.length === 0 || accounts.length === 0) {
+        modelQuotasEl.innerHTML = '<p style="color: var(--text-muted); text-align: center; padding: 1rem; grid-column: 1/-1;">No model quota data available</p>';
+    } else {
+        // Create a table with all models and accounts
+        const tableHeader = `
+            <div class="quota-table-header">
+                <div class="quota-model-col">Model</div>
+                ${accounts.map(acc => {
+                    const shortName = acc.email ? acc.email.split('@')[0] : 'Account';
+                    return `<div class="quota-account-col" title="${escapeHtml(acc.email || '')}">${escapeHtml(shortName)}</div>`;
+                }).join('')}
+            </div>
+        `;
+
+        const tableRows = models.map(modelName => {
+            const accountCells = accounts.map(account => {
+                const limit = account.limits?.[modelName];
+                if (!limit) {
+                    return `<div class="quota-cell"><span class="quota-na">N/A</span></div>`;
+                }
+
+                const percentage = Math.round((limit.remainingFraction || 0) * 100);
+                const barClass = percentage >= 70 ? 'high' : percentage >= 30 ? 'medium' : 'low';
+
+                return `
+                    <div class="quota-cell">
+                        <div class="quota-bar-mini">
+                            <div class="quota-bar-fill ${barClass}" style="width: ${percentage}%"></div>
+                        </div>
+                        <span class="quota-percentage ${barClass}">${percentage}%</span>
+                    </div>
+                `;
+            }).join('');
+
+            // Format model name for display
+            const displayName = modelName
+                .replace('claude-', '')
+                .replace('gemini-', 'gem-')
+                .replace('-thinking', ' 🧠')
+                .replace('-', ' ');
+
+            return `
+                <div class="quota-table-row">
+                    <div class="quota-model-col" title="${escapeHtml(modelName)}">${escapeHtml(displayName)}</div>
+                    ${accountCells}
+                </div>
+            `;
+        }).join('');
+
+        modelQuotasEl.innerHTML = `
+            <div class="quota-table">
+                ${tableHeader}
+                ${tableRows}
+            </div>
+        `;
+    }
+}
+
+// ================================
 // Message Rendering (Updated for new DOM)
 // ================================
 function createMessageElement(role) {
     const div = document.createElement('div');
     div.className = `message ${role}`;
-    const avatarIcon = role === 'user' ? '👤' : '✨';
+
+    // User: Simple user SVG icon, AI: Cool robot SVG icon
+    const userIcon = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+        <circle cx="12" cy="7" r="4"></circle>
+    </svg>`;
+
+    const robotIcon = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="11" width="18" height="10" rx="2"></rect>
+        <circle cx="12" cy="5" r="2"></circle>
+        <path d="M12 7v4"></path>
+        <line x1="8" y1="16" x2="8" y2="16"></line>
+        <line x1="16" y1="16" x2="16" y2="16"></line>
+        <circle cx="8" cy="16" r="1" fill="currentColor"></circle>
+        <circle cx="16" cy="16" r="1" fill="currentColor"></circle>
+    </svg>`;
+
+    const avatarIcon = role === 'user' ? userIcon : robotIcon;
     div.innerHTML = `
         <div class="message-avatar">${avatarIcon}</div>
         <div class="message-content"></div>
@@ -1476,3 +1694,8 @@ window.attemptLogin = attemptLogin;
 window.togglePasswordVisibility = togglePasswordVisibility;
 window.logout = logout;
 window.checkAuth = checkAuth;
+
+// Account Limits functions
+window.openAccountLimits = openAccountLimits;
+window.closeAccountLimits = closeAccountLimits;
+window.fetchAccountLimits = fetchAccountLimits;

@@ -78,7 +78,7 @@
                         <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
                     </svg>
                 </button>
-                <button class="rail-btn" title="Explore">
+                <button class="rail-btn" title="Account Status" onclick="openAccountLimits()">
                     <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none">
                         <circle cx="12" cy="12" r="10"></circle>
                         <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon>
@@ -258,6 +258,48 @@
             <img src="/robot_mascot.png" alt="Robot Mascot">
             <div class="robot-bubble">
                 Hello! from Arafat 💬
+            </div>
+        </div>
+    </div>
+
+    <!-- Account Limits Modal -->
+    <div class="modal-overlay" id="account-limits-modal">
+        <div class="modal account-limits-modal">
+            <div class="modal-header">
+                <h2>🔗 Account Status & Limits</h2>
+                <button class="modal-close" onclick="closeAccountLimits()">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="account-limits-loading" id="account-limits-loading">
+                    <div class="spinner"></div>
+                    <span>Fetching account status...</span>
+                </div>
+                <div class="account-limits-content" id="account-limits-content" style="display: none;">
+                    <!-- Summary Cards -->
+                    <div class="account-summary-cards" id="account-summary-cards"></div>
+
+                    <!-- Account Details -->
+                    <div class="account-details-section">
+                        <h3>Account Details</h3>
+                        <div class="account-cards" id="account-cards"></div>
+                    </div>
+
+                    <!-- Model Quotas -->
+                    <div class="model-quotas-section">
+                        <h3>Model Quotas</h3>
+                        <div class="model-quotas-grid" id="model-quotas-grid"></div>
+                    </div>
+                </div>
+                <div class="account-limits-error" id="account-limits-error" style="display: none;">
+                    <span class="error-icon">⚠️</span>
+                    <span class="error-text">Failed to load account data</span>
+                    <button class="btn-secondary" onclick="fetchAccountLimits()">Retry</button>
+                </div>
             </div>
         </div>
     </div>
