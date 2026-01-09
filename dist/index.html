@@ -13,7 +13,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
-  <script type="module" crossorigin src="/assets/index-BGQJAotq.js"></script>
+  <script type="module" crossorigin src="/assets/index-_QpQtnCf.js"></script>
   <link rel="stylesheet" crossorigin href="/assets/index-wOrHpx-q.css">
 </head>
 
@@ -100,6 +100,13 @@
                     <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none">
                         <circle cx="12" cy="12" r="10"></circle>
                         <polyline points="12 6 12 12 16 14"></polyline>
+                    </svg>
+                </button>
+                <button class="rail-btn" title="Logout" onclick="logout()">
+                    <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                        <polyline points="16 17 21 12 16 7"></polyline>
+                        <line x1="21" y1="12" x2="9" y2="12"></line>
                     </svg>
                 </button>
                 <div class="user-avatar-small" onclick="openSettings()">👤</div>
@@ -322,7 +329,12 @@
                     <label class="setting-label">Data Management</label>
                     <button class="btn-secondary" onclick="exportData()" style="width: 100%; margin-bottom: 10px;">📥
                         Export Chat History (JSON)</button>
-                    <button class="danger-btn" onclick="clearAllData()">🗑️ Clear All Conversations</button>
+                    <button class="danger-btn" onclick="clearAllData()" style="margin-bottom: 10px;">🗑️ Clear All Conversations</button>
+                </div>
+
+                <div class="setting-group">
+                    <label class="setting-label">Account</label>
+                    <button class="danger-btn" onclick="logout(); closeSettings();">🚪 Logout</button>
                 </div>
             </div>
             <div class="modal-footer">

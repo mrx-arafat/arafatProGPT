@@ -12,7 +12,8 @@ const AUTH_CONFIG = {
     username: import.meta.env.VITE_APP_USERNAME || 'admin',
     password: import.meta.env.VITE_APP_PASSWORD || 'password',
     maxAttempts: 5,
-    lockoutTime: 30000 // 30 seconds
+    lockoutTime: 30000, // 30 seconds
+    sessionDuration: 30 * 24 * 60 * 60 * 1000 // 30 days in milliseconds
 };
 
 let loginAttempts = 0;
@@ -48,9 +49,27 @@ const funnyFacts = [
 ];
 
 function checkAuth() {
-    const isAuthenticated = sessionStorage.getItem('arafatGPT_authenticated') === 'true';
+    const authData = localStorage.getItem('arafatGPT_auth');
     const loginOverlay = document.getElementById('login-overlay');
     const appContainer = document.getElementById('app-container');
+
+    let isAuthenticated = false;
+
+    if (authData) {
+        try {
+            const { authenticated, expiresAt } = JSON.parse(authData);
+            // Check if session is still valid (not expired)
+            if (authenticated && expiresAt && Date.now() < expiresAt) {
+                isAuthenticated = true;
+            } else {
+                // Session expired, clear it
+                localStorage.removeItem('arafatGPT_auth');
+            }
+        } catch (e) {
+            // Invalid data, clear it
+            localStorage.removeItem('arafatGPT_auth');
+        }
+    }
 
     if (isAuthenticated) {
         loginOverlay.classList.add('hidden');
@@ -104,8 +123,13 @@ function loginSuccess() {
     const loginContainer = document.querySelector('.login-container');
     const loginOverlay = document.getElementById('login-overlay');
 
-    // Store authentication
-    sessionStorage.setItem('arafatGPT_authenticated', 'true');
+    // Store authentication with expiry (30 days from now)
+    const authData = {
+        authenticated: true,
+        expiresAt: Date.now() + AUTH_CONFIG.sessionDuration,
+        loginTime: Date.now()
+    };
+    localStorage.setItem('arafatGPT_auth', JSON.stringify(authData));
 
     // Play success animation
     loginContainer.classList.add('success');
@@ -214,13 +238,17 @@ function togglePasswordVisibility() {
 }
 
 function logout() {
-    sessionStorage.removeItem('arafatGPT_authenticated');
+    // Clear authentication
+    localStorage.removeItem('arafatGPT_auth');
+
+    // Reset UI
     document.getElementById('login-overlay').classList.remove('hidden');
     document.getElementById('app-container').style.display = 'none';
     document.getElementById('login-username').value = '';
     document.getElementById('login-password').value = '';
     document.getElementById('login-error').classList.remove('visible');
     loginAttempts = 0;
+
     showToast("👋 See you later, Agent! The AI will miss you!", 'info');
 }
 
