@@ -228,7 +228,7 @@ function logout() {
 // Configuration & State
 // ================================
 const DEFAULT_CONFIG = {
-    apiUrl: 'https://chat.arafatops.com',
+    apiUrl: import.meta.env.VITE_API_URL || '',
     defaultModel: 'claude-sonnet-4-5',
     maxTokens: 16384,
     showThinking: true,
@@ -871,11 +871,50 @@ async function sendMessage() {
     renderImagePreviews();
     updateCharCount();
 
-    // Prepare API messages
-    const apiMessages = conv.messages.map(msg => ({
-        role: msg.role,
-        content: msg.content
-    }));
+    // Prepare API messages - normalize content format for API
+    const apiMessages = conv.messages.map(msg => {
+        // For assistant messages, always use string content
+        if (msg.role === 'assistant') {
+            return {
+                role: msg.role,
+                content: typeof msg.content === 'string' ? msg.content :
+                    (Array.isArray(msg.content) ? msg.content.map(c => c.text || '').join('') : String(msg.content))
+            };
+        }
+
+        // For user messages, check if content is already properly formatted
+        let content = msg.content;
+
+        // If content is a string, wrap it for API compatibility
+        if (typeof content === 'string') {
+            content = [{ type: 'text', text: content }];
+        }
+
+        // If content is an array, ensure proper format
+        if (Array.isArray(content)) {
+            content = content.map(item => {
+                if (item.type === 'text') {
+                    return { type: 'text', text: item.text || '' };
+                }
+                if (item.type === 'image') {
+                    return {
+                        type: 'image',
+                        source: item.source || {
+                            type: 'base64',
+                            media_type: item.media_type || 'image/png',
+                            data: item.data || ''
+                        }
+                    };
+                }
+                return item;
+            });
+        }
+
+        return {
+            role: msg.role,
+            content: content
+        };
+    });
 
     // Start streaming
     isStreaming = true;
@@ -903,8 +942,19 @@ async function sendMessage() {
         });
 
         if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.error?.message || `HTTP ${response.status}`);
+            let errorMessage = `HTTP ${response.status}`;
+            try {
+                const errorData = await response.json();
+                errorMessage = errorData.error?.message || errorData.message || errorMessage;
+            } catch (e) {
+                // Response wasn't JSON, try to get text
+                try {
+                    errorMessage = await response.text() || errorMessage;
+                } catch (e2) {
+                    // Ignore
+                }
+            }
+            throw new Error(errorMessage);
         }
 
         // Process stream
@@ -1270,7 +1320,10 @@ async function checkConnection() {
         if (response.ok) {
             const data = await response.json();
             statusEl.className = 'connection-pill connected';
-            statusText.textContent = `Connected • ${data.accounts || 'Proxy ready'}`;
+            // Use summary field or count available accounts
+            const accountInfo = data.summary ||
+                (data.counts ? `${data.counts.available}/${data.counts.total} accounts` : 'Proxy ready');
+            statusText.textContent = `Connected • ${accountInfo}`;
         } else {
             throw new Error('Bad response');
         }
