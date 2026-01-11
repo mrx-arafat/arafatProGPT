@@ -1015,6 +1015,7 @@ async function processStream(response, conv) {
 
     let fullThinking = '';
     let fullText = '';
+    let outputImages = [];
 
     while (true) {
         const { done, value } = await reader.read();
@@ -1052,6 +1053,44 @@ async function processStream(response, conv) {
                             textBlockEl.className = 'text-content';
                             assistantMessageEl.querySelector('.message-content').appendChild(textBlockEl);
                             fullText = block.text || '';
+                        } else if (block.type === 'image') {
+                            // Handle image content blocks from AI response
+                            const source = block.source || {};
+                            let imageData = null;
+
+                            if (source.type === 'base64' && source.data) {
+                                imageData = {
+                                    media_type: source.media_type || 'image/png',
+                                    data: source.data
+                                };
+                            } else if (source.type === 'url' && source.url) {
+                                // Handle URL-based images
+                                imageData = {
+                                    url: source.url
+                                };
+                            } else if (source.data) {
+                                // Fallback for direct data
+                                imageData = {
+                                    media_type: source.media_type || 'image/png',
+                                    data: source.data
+                                };
+                            }
+
+                            if (imageData) {
+                                outputImages.push(imageData);
+                                // Render the image immediately
+                                const imagesDiv = assistantMessageEl.querySelector('.message-images') || (() => {
+                                    const div = document.createElement('div');
+                                    div.className = 'message-images';
+                                    assistantMessageEl.querySelector('.message-content').appendChild(div);
+                                    return div;
+                                })();
+                                const imgEl = document.createElement('img');
+                                imgEl.className = 'message-image';
+                                imgEl.src = imageData.url || `data:${imageData.media_type};base64,${imageData.data}`;
+                                imgEl.onclick = () => window.open(imgEl.src, '_blank');
+                                imagesDiv.appendChild(imgEl);
+                            }
                         }
                         break;
 
@@ -1076,11 +1115,12 @@ async function processStream(response, conv) {
                         break;
 
                     case 'message_stop':
-                        // Store assistant message
+                        // Store assistant message with images
                         conv.messages.push({
                             role: 'assistant',
                             content: fullText,
-                            thinking: fullThinking || undefined
+                            thinking: fullThinking || undefined,
+                            images: outputImages.length > 0 ? outputImages : undefined
                         });
                         conv.updatedAt = Date.now();
                         break;
@@ -1148,7 +1188,8 @@ function renderMessage(role, content, images, thinking) {
         images.forEach(img => {
             const imgEl = document.createElement('img');
             imgEl.className = 'message-image';
-            imgEl.src = `data:${img.media_type};base64,${img.data}`;
+            // Support both base64 and URL-based images
+            imgEl.src = img.url || `data:${img.media_type};base64,${img.data}`;
             imgEl.onclick = () => window.open(imgEl.src, '_blank');
             imagesDiv.appendChild(imgEl);
         });
