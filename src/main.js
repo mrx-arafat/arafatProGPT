@@ -950,8 +950,24 @@ async function sendMessage() {
 
     const model = document.getElementById('model-select').value;
 
+    // Check if this is an image generation model
+    const isImageModel = model.includes('image');
+
     try {
         abortController = new AbortController();
+
+        // Build request body
+        const requestBody = {
+            model,
+            max_tokens: config.maxTokens,
+            stream: true,
+            messages: apiMessages
+        };
+
+        // Add response modalities for image generation models
+        if (isImageModel) {
+            requestBody.response_modalities = ['text', 'image'];
+        }
 
         const response = await fetch(`${config.apiUrl}/v1/messages`, {
             method: 'POST',
@@ -960,12 +976,7 @@ async function sendMessage() {
                 'anthropic-version': '2023-06-01',
                 'ngrok-skip-browser-warning': 'true'
             },
-            body: JSON.stringify({
-                model,
-                max_tokens: config.maxTokens,
-                stream: true,
-                messages: apiMessages
-            }),
+            body: JSON.stringify(requestBody),
             signal: abortController.signal
         });
 
