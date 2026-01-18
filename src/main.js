@@ -1300,7 +1300,12 @@ function updateUIForStreaming(streaming) {
 
 function scrollToBottom() {
     const container = document.getElementById('chat-container');
-    container.scrollTop = container.scrollHeight;
+    // Only auto-scroll if user is near the bottom (within 150px)
+    // This allows users to scroll up during streaming without being yanked back
+    const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 150;
+    if (isNearBottom) {
+        container.scrollTop = container.scrollHeight;
+    }
 }
 
 function autoResize(textarea) {
